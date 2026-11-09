@@ -18,7 +18,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -26,10 +25,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Size
@@ -103,13 +101,13 @@ fun ModexConnectButton(
         label = "ContentColorAnimation"
     )
 
-    val starScale by animateFloatAsState(
+    val morphProgress by animateFloatAsState(
         targetValue = if (vpnState == VpnState.Connected) 1f else 0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
+            stiffness = Spring.StiffnessLow
         ),
-        label = "StarScaleAnimation"
+        label = "MorphProgressAnimation"
     )
 
     val infiniteTransition = rememberInfiniteTransition(label = "StarRotationTransition")
@@ -137,11 +135,10 @@ fun ModexConnectButton(
     }
 
     val buttonBgColor = Color(0xFF2563EB)
-    val starShapeColor = Color(0xFF1D4ED8)
 
     Box(
         modifier = modifier
-            .size(240.dp)
+            .size(190.dp)
             .scale(scale)
             .clickable(
                 interactionSource = interactionSource,
@@ -150,60 +147,54 @@ fun ModexConnectButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (starScale > 0.01f) {
-            Canvas(
-                modifier = Modifier
-                    .size(230.dp)
-                    .scale(starScale)
-                    .rotate(rotationAngle)
-            ) {
-                val path = createExpressiveScallopPath(size = size, points = 12)
-                drawPath(path = path, color = starShapeColor)
-            }
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .rotate(rotationAngle * morphProgress)
+        ) {
+            val path = createExpressiveMorphPath(
+                size = size,
+                points = 12,
+                morph = morphProgress
+            )
+            drawPath(path = path, color = buttonBgColor)
         }
 
-        Box(
-            modifier = Modifier
-                .size(180.dp)
-                .clip(CircleShape)
-                .background(buttonBgColor),
-            contentAlignment = Alignment.Center
+        Column(
+            modifier = Modifier.offset(y = (-2).dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(
-                modifier = Modifier.offset(y = (-4).dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_modex_symbol),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(contentColor),
-                    modifier = Modifier.size(54.dp, 36.dp)
-                )
+            Image(
+                painter = painterResource(id = R.drawable.ic_modex_symbol),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(contentColor),
+                modifier = Modifier.size(82.dp, 55.dp)
+            )
 
-                Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-                BasicText(
-                    text = buttonText,
-                    style = TextStyle(
-                        color = contentColor,
-                        fontFamily = GoogleSans,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 13.sp,
-                        letterSpacing = 0.3.sp
-                    )
+            BasicText(
+                text = buttonText,
+                style = TextStyle(
+                    color = contentColor,
+                    fontFamily = GoogleSans,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    letterSpacing = 0.3.sp
                 )
-            }
+            )
         }
     }
 }
 
-private fun createExpressiveScallopPath(size: Size, points: Int): Path {
+private fun createExpressiveMorphPath(size: Size, points: Int, morph: Float): Path {
     val path = Path()
     val centerX = size.width / 2f
     val centerY = size.height / 2f
     val outerRadius = minOf(centerX, centerY)
-    val innerRadius = outerRadius * 0.84f
+    val scallopDepth = 0.16f * morph
+    val innerRadius = outerRadius * (1f - scallopDepth)
     val totalVertices = points * 2
     val angleStep = (2.0 * Math.PI) / totalVertices
 
@@ -227,7 +218,7 @@ private fun createExpressiveScallopPath(size: Size, points: Int): Path {
             val prevY = centerY + (prevRadius * sin(prevAngle)).toFloat()
 
             val midAngle = prevAngle + (angleStep / 2.0)
-            val midRadius = (prevRadius + radius) / 2f * 1.05f
+            val midRadius = (prevRadius + radius) / 2f * (1f + 0.05f * morph)
             val controlX = centerX + (midRadius * cos(midAngle)).toFloat()
             val controlY = centerY + (midRadius * sin(midAngle)).toFloat()
 
@@ -241,7 +232,7 @@ private fun createExpressiveScallopPath(size: Size, points: Int): Path {
     val lastY = centerY + (lastRadius * sin(lastAngle)).toFloat()
 
     val closeMidAngle = lastAngle + (angleStep / 2.0)
-    val closeMidRadius = (lastRadius + outerRadius) / 2f * 1.05f
+    val closeMidRadius = (lastRadius + outerRadius) / 2f * (1f + 0.05f * morph)
     val closeControlX = centerX + (closeMidRadius * cos(closeMidAngle)).toFloat()
     val closeControlY = centerY + (closeMidRadius * sin(closeMidAngle)).toFloat()
 
