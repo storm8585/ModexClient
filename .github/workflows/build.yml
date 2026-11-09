@@ -1,0 +1,63 @@
+name: Build Modex VPN
+
+on:
+  push:
+    branches:
+      - debug
+      - release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Debug ARMv7 APK
+        if: github.ref_name == 'debug'
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }} -PtargetAbi=armeabi-v7a
+          mkdir -p output_zip
+          find app/build/outputs/apk/debug -name "*.apk" -exec cp {} output_zip/ \;
+          cd output_zip
+          zip -r ../modex-debug.zip .
+          cd ..
+
+      - name: Upload Debug Artifact
+        if: github.ref_name == 'debug'
+        uses: actions/upload-artifact@v4
+        with:
+          name: modex-debug
+          path: modex-debug.zip
+          retention-days: 14
+
+      - name: Build Release Universal APK
+        if: github.ref_name == 'release'
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }}
+          mkdir -p output_zip
+          find app/build/outputs/apk/release -name "*.apk" -exec cp {} output_zip/ \;
+          cd output_zip
+          zip -r ../modex-release.zip .
+          cd ..
+
+      - name: Upload Release Artifact
+        if: github.ref_name == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: modex-release
+          path: modex-release.zip
+          retention-days: 30
