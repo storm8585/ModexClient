@@ -6,14 +6,11 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -38,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -62,6 +60,7 @@ fun ModexConnectButton(
     val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val rotationAnim = remember { Animatable(0f) }
 
     LaunchedEffect(vpnState) {
         if (vpnState == VpnState.Connected) {
@@ -79,6 +78,24 @@ fun ModexConnectButton(
                 val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
                 vibrator?.vibrate(40)
             }
+
+            rotationAnim.snapTo(0f)
+            while (true) {
+                val current = rotationAnim.value
+                rotationAnim.animateTo(
+                    targetValue = current + 360f,
+                    animationSpec = keyframes {
+                        durationMillis = 6000
+                        current at 0 using CubicBezierEasing(0.2f, 0f, 0f, 1f)
+                        (current + 90f) at 1500 using CubicBezierEasing(0.2f, 0f, 0f, 1f)
+                        (current + 180f) at 3000 using CubicBezierEasing(0.2f, 0f, 0f, 1f)
+                        (current + 270f) at 4500 using CubicBezierEasing(0.2f, 0f, 0f, 1f)
+                        (current + 360f) at 6000
+                    }
+                )
+            }
+        } else {
+            rotationAnim.snapTo(0f)
         }
     }
 
@@ -93,11 +110,11 @@ fun ModexConnectButton(
 
     val contentColor by animateColorAsState(
         targetValue = if (vpnState == VpnState.Disconnected) {
-            Color(0xFF8E8E93)
+            Color(0xFF000000)
         } else {
             Color(0xFFFFFFFF)
         },
-        animationSpec = tween(durationMillis = 300),
+        animationSpec = tween(durationMillis = 250),
         label = "ContentColorAnimation"
     )
 
@@ -108,24 +125,6 @@ fun ModexConnectButton(
             stiffness = Spring.StiffnessLow
         ),
         label = "MorphProgressAnimation"
-    )
-
-    val infiniteTransition = rememberInfiniteTransition(label = "StarRotationTransition")
-    val rotationAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = keyframes {
-                durationMillis = 6000
-                0f at 0 using CubicBezierEasing(0.2f, 0f, 0f, 1f)
-                90f at 1500 using CubicBezierEasing(0.2f, 0f, 0f, 1f)
-                180f at 3000 using CubicBezierEasing(0.2f, 0f, 0f, 1f)
-                270f at 4500 using CubicBezierEasing(0.2f, 0f, 0f, 1f)
-                360f at 6000
-            },
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "StarRotationAngle"
     )
 
     val buttonText = when (vpnState) {
@@ -150,14 +149,26 @@ fun ModexConnectButton(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .rotate(rotationAngle * morphProgress)
+                .rotate(rotationAnim.value)
         ) {
-            val path = createExpressiveMorphPath(
-                size = size,
-                points = 12,
-                morph = morphProgress
-            )
-            drawPath(path = path, color = buttonBgColor)
+            val centerX = size.width / 2f
+            val centerY = size.height / 2f
+            val outerRadius = minOf(centerX, centerY)
+
+            if (morphProgress <= 0.001f) {
+                drawCircle(
+                    color = buttonBgColor,
+                    radius = outerRadius,
+                    center = Offset(centerX, centerY)
+                )
+            } else {
+                val path = createExpressiveMorphPath(
+                    size = size,
+                    points = 12,
+                    morph = morphProgress
+                )
+                drawPath(path = path, color = buttonBgColor)
+            }
         }
 
         Column(
@@ -169,7 +180,7 @@ fun ModexConnectButton(
                 painter = painterResource(id = R.drawable.ic_modex_symbol),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(contentColor),
-                modifier = Modifier.size(82.dp, 55.dp)
+                modifier = Modifier.size(88.dp, 60.dp)
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -179,8 +190,8 @@ fun ModexConnectButton(
                 style = TextStyle(
                     color = contentColor,
                     fontFamily = GoogleSans,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
                     letterSpacing = 0.3.sp
                 )
             )
